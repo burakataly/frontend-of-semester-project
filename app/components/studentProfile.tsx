@@ -18,14 +18,15 @@ const StudentProfile: React.FC = () => {
     const [student, setStudent] = useState<Student | null>(null);
     const [isUpdating, setIsUpdating] = useState<boolean>(false);
     const [amountToAdd, setAmountToAdd] = useState<string>('');
-    const[studentId, setStudentId] = useState<number>();
+    const [studentId, setStudentId] = useState<number>();
+    const [errorMessage, setErrorMessage] = useState<string>('');
     const router = useRouter();
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
         if (userData) {
             const userObj: User = JSON.parse(userData);
-            if(userObj.role == 'instructor'){
+            if (userObj.role === 'instructor') {
                 router.push('/instructor-profile/' + userObj.id);
             }
             setStudentId(userObj.id);
@@ -37,7 +38,7 @@ const StudentProfile: React.FC = () => {
             fetchStudentDetails();
             fetchEnrollments();
         }
-    }, [studentId]); 
+    }, [studentId]);
 
     const fetchStudentDetails = async () => {
         const response = await fetch(`http://localhost:8080/students/${studentId}`);
@@ -58,9 +59,15 @@ const StudentProfile: React.FC = () => {
     const updateStudent = async () => {
         if (!student || !studentId) return;
 
+        const amount = parseFloat(amountToAdd);
+        if (isNaN(amount) || amount <= 0) {
+            setErrorMessage('You cannot add a negative amount or zero.');
+            return;
+        }
+
         const updatedStudent: Student = {
             ...student,
-            balance: student.balance + parseFloat(amountToAdd),
+            balance: student.balance + amount,
         };
 
         const response = await fetch(`http://localhost:8080/students/${studentId}`, {
@@ -76,6 +83,7 @@ const StudentProfile: React.FC = () => {
             setStudent(updatedStudent);  // Update local state
             setIsUpdating(false);  // Reset the update state
             setAmountToAdd('');  // Clear the input
+            setErrorMessage(''); // Clear the error message
         } else {
             alert('Failed to update balance.');
         }
@@ -107,7 +115,7 @@ const StudentProfile: React.FC = () => {
     };
 
     return (
-         <div className="container mx-auto p-4">
+        <div className="container mx-auto p-4">
             <div className="flex justify-between items-center">
                 <Link href="/courses" passHref>
                     <button className="mt-4 mb-4 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 focus:outline-none transition ease-in-out duration-150">
@@ -145,6 +153,7 @@ const StudentProfile: React.FC = () => {
                         placeholder="Amount to Add"
                         required className="w-full p-2 border border-gray-300 rounded bg-gray-100 text-gray-900 focus:bg-white focus:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                    {errorMessage && <p className="text-red-500">{errorMessage}</p>}
                     <button onClick={updateStudent} className="btn btn-primary">Update Balance</button>
                 </div>
             ) : (
@@ -154,7 +163,7 @@ const StudentProfile: React.FC = () => {
             )}
         </div>
     );
-
 };
 
 export default StudentProfile;
+

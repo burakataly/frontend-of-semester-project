@@ -100,9 +100,6 @@ export default function InstructorProfile({ params }: { params: { instructorId: 
                     <CourseCard
                         courseId={course.id}
                         course={course}
-                        userRole="instructor"
-                        userId={parseInt(instructorId)}
-                        userBalance={0}
                     />
                 </React.Fragment>
                 ))}
