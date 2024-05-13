@@ -70,9 +70,6 @@ const MainPage: React.FC = () => {
                     <CourseCard
                         courseId={course.id}
                         course={course}
-                        userRole= {user?.role || ''}
-                        userId={user?.id}
-                        userBalance={user?.balance || 0}
                     />
                 </React.Fragment>
                 ))}
