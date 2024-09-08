@@ -1,5 +1,3 @@
-import { Enrollment } from '@/app/interfaces/enrollment';
-
 export interface WeekResponse {
     id: number
     reading: string;
@@ -14,7 +12,6 @@ export interface CourseResponse {
     duration: number;
     price: number;
     enrollmentCount: number;
-    enrollments: Enrollment[];
     weeks: WeekResponse[];
 }
 

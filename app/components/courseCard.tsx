@@ -1,42 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import { CourseResponse } from '@/app/interfaces/course';
-import { User } from '@/app/interfaces/user';
+import { Student } from '@/app/interfaces/user';
+import { Enrollment } from '@/app/interfaces/enrollment';
+import useAuthActions from "@/app/services/AuthService";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface CourseCardProps {
     courseId: number;
     course: CourseResponse;
 }
 
-interface StudentResponse {
-    id: number;
-    balance: number;
-}
-
 const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
     const [isEnrolled, setIsEnrolled] = useState(false);
-    const [enrollmentCount, setEnrollmentCount] = useState(course.enrollments.length);
+    const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+    const [enrollmentCount, setEnrollmentCount] = useState(course.enrollmentCount);
     const [userRole, setUserRole] = useState<string>('');
     const [userId, setUserId] = useState<number>();
-    const [student, setStudent] = useState<StudentResponse | null>(null);
+    const [student, setStudent] = useState<Student | null>(null);
+    const [loading, setLoading] = useState(true);
+    const { GetWithAuth, PostWithAuth, DeleteWithAuth } = useAuthActions();
+    const router = useRouter();
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const userObj: User = JSON.parse(userData);
-            setUserRole(userObj.role);
-            setUserId(userObj.id);
+        const storedUserId = localStorage.getItem('currentUserId');
+        const storedUserRole = localStorage.getItem('userRole');
+
+        if (storedUserId) {
+            setUserId(parseInt(storedUserId));
         }
+        if (storedUserRole) {
+            setUserRole(storedUserRole);
+        }
+
+        setLoading(false);
     }, []);
 
-    useEffect(() => {
-        if (userId) {
-            fetchStudent();
-        }
-    }, [userId]);
-
     const fetchStudent = async () => {
-        const res = await fetch(`http://localhost:8080/students/${userId}`);
+        const res = await GetWithAuth(`/students/${userId}`);
         if (res.ok) {
             const data = await res.json();
             setStudent(data);
@@ -45,10 +46,31 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
         }
     };
 
-    const checkEnrollments = () => {
-        if (userRole == 'instructor') return;
+    useEffect(() => {
+    
+        if (userId && userRole == 'STUDENT') {
+            fetchStudent();
+        }
+    }, [userId, userRole]);
+
+    useEffect(() => {
+        const fetchEnrollments = async () => {
+            const enrollment = await GetWithAuth(`/enrollments/course/${course.id}`);
+            if (enrollment.ok) {
+                const enrollmentData = await enrollment.json() as Enrollment[];
+                setEnrollments(enrollmentData);
+            } else {
+                console.error('Failed to load enrollments');
+            }
+        };
+    
+        fetchEnrollments();
+    }, [course.id, userRole]);
+
+    const checkEnrollments = async () => {
+        if (userRole == 'INSTRUCTOR') return;
         if (student) {
-            const enrollmentControl = course.enrollments.find(enrollment => enrollment.studentId === student.id);
+            const enrollmentControl = enrollments.find(enrollment => enrollment.studentId === student.id);
             if (enrollmentControl != null) {
                 setIsEnrolled(true);
             }
@@ -57,10 +79,10 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
 
     useEffect(() => {
         checkEnrollments();
-    }, [student, course.enrollments, userRole]);
+    }, [student, enrollments]);
 
     const handleEnrollment = async () => {
-        if (userRole == 'instructor') return;
+        if (userRole == 'INSTRUCTOR') return;
 
         if (!isEnrolled) {
             const success = await saveEnrollment();
@@ -86,11 +108,8 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
         }
 
         try {
-            const response = await fetch(`http://localhost:8080/enrollments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: userId, courseId: course.id })
-            });
+            const response = await PostWithAuth(`/enrollments`,
+                { studentId: userId, courseId: course.id });
             if (response.ok) {
                 alert('Enrollment successful!');
                 return true;
@@ -110,12 +129,9 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
             const studentId = userId?.toString();
             const courseId = course.id.toString();
 
-            const url = new URL('http://localhost:8080/enrollments?studentId=' + studentId + '&courseId=' + courseId);
+            const url = `/enrollments?studentId=${studentId}&courseId=${courseId}`;
 
-            await fetch(url, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
+            await DeleteWithAuth(url);
             return true;
 
         } catch (error) {
@@ -126,10 +142,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
 
     const deleteCourse = async () => {
         try {
-            await fetch('http://localhost:8080/courses/' + courseId, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
+            await DeleteWithAuth('/courses/' + courseId);
             alert('Course deleted successfully!');
             return true;
         } catch (error) {
@@ -138,11 +151,15 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
         }
     };
 
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
     return (
         <div className="bg-white shadow-md rounded-lg p-4 mb-6 relative">
             <h2 className="text-xl font-bold mb-2 text-gray-800">{course.title}</h2>
             <p className="text-gray-700 mb-4">{course.description}</p>
-            <Link href={`/instructor-profile/${course.instructorId}`} passHref>
+            <Link href={`/instructor-profile/`} passHref>
                 <span className="text-gray-600 mb-1 cursor-pointer underline hover:text-blue-500">
                     Instructor: {course.instructorName}
                 </span>
@@ -151,14 +168,22 @@ const CourseCard: React.FC<CourseCardProps> = ({ courseId, course }) => {
             <p className="text-gray-600 mb-3">Price: {course.price.toFixed(2)} TL</p>
             <div className="flex justify-between items-center">
                 <p className="text-green-500">Enrollments: {enrollmentCount}</p>
-                {userRole === 'student' && !isEnrolled && (
+                {userRole === 'STUDENT' && !isEnrolled && (
                     <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600" onClick={() => handleEnrollment()}>
                         Enroll
                     </button>
                 )}
-                {userRole === 'student' && isEnrolled && (
+                {userRole === 'STUDENT' && isEnrolled && (
                     <button className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600" onClick={() => handleEnrollment()}>
                         Unenroll
+                    </button>
+                )}
+                {!userId && !userRole && (
+                    <button 
+                        className="text-red-500 underline hover:text-red-600 focus:outline-none"
+                        onClick={() => router.push('/login')}
+                    >
+                        Log in to enroll in this course
                     </button>
                 )}
             </div>

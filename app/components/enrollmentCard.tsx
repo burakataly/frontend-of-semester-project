@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Enrollment } from '@/app/interfaces/enrollment';
 import { CourseResponse } from '@/app/interfaces/course';
+import useAuthActions from "@/app/services/AuthService";
 import Link from 'next/link';
 
 interface EnrollmentCardProps {
@@ -10,10 +11,11 @@ interface EnrollmentCardProps {
 
 const EnrollmentCard: React.FC<EnrollmentCardProps> = ({ enrollment, onDelete }) => {
     const [course, setCourse] = useState<CourseResponse | null>(null);
+    const { GetWithAuth, DeleteWithAuth } = useAuthActions();
 
     useEffect(() => {
         const fetchCourse = async () => {
-            const response = await fetch(`http://localhost:8080/courses/${enrollment.courseId}`);
+            const response = await GetWithAuth(`/courses/${enrollment.courseId}`);
             if (response.ok) {
                 const data: CourseResponse = await response.json();
                 setCourse(data);
@@ -25,10 +27,7 @@ const EnrollmentCard: React.FC<EnrollmentCardProps> = ({ enrollment, onDelete })
 
     const deleteEnrollment = async () => {
         try {
-            await fetch(`http://localhost:8080/enrollments/${enrollment.id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
+            await DeleteWithAuth(`/enrollments/${enrollment.id}`);
             alert('Enrollment deleted successfully!');
             onDelete(enrollment.id);
         } catch (error) {

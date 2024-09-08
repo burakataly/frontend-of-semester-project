@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {User} from '@/app/interfaces/user'
+import useAuthActions from "@/app/services/AuthService";
 
 interface UserLoginInfo {
     username: string;
@@ -12,28 +12,22 @@ function LoginPage() {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [error, setError] = useState<string>('');
+    const { PostWithoutAuth } = useAuthActions();
     const router = useRouter();
 
-    const tryLogin = async (url: string, userInfo: UserLoginInfo, role: 'student' | 'instructor'): Promise<boolean> => {
-        const response = await fetch(`${"http://localhost:8080"}${url}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userInfo)
-        });
+    const tryLogin = async (url: string, userInfo: UserLoginInfo): Promise<boolean> => {
+        const response = await PostWithoutAuth(url, userInfo)
         if (response.ok) {
             const data = await response.json();
-            const userData: User = {
-                id: data.id,
-                username: data.username,
-                role: role as 'student' | 'instructor',
-                balance: role === 'student' ? data.balance : undefined,
-                biography: role === 'instructor' ? data.biography : undefined
-            };
-            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('username', username);
+            localStorage.setItem('currentUserId', data.userId);
+            localStorage.setItem('userRole', data.role);
+            localStorage.setItem('accessToken', data.accessToken);
+            localStorage.setItem('refreshToken', data.refreshToken);
             router.push('/courses');
             return true;
         } else {
-            const errorText = await response.text(); // Read response as text to handle non-JSON responses
+            const errorText = await response.text(); 
             console.error('Login failed:', errorText);
             setError('Login failed: ' + errorText);
             return false;
@@ -42,10 +36,8 @@ function LoginPage() {
 
     const handleLogin = async () => {
         setError('');
-        if (!(await tryLogin('/students/login', { username, password }, 'student'))) {
-            if (!(await tryLogin('/instructors/login', { username, password }, 'instructor'))) {
-                setError('Login failed: Invalid credentials or server error');
-            }
+        if (!(await tryLogin('/auth/login', { username, password }))) {
+            setError('Login failed: Invalid credentials or server error');
         }
     };
 

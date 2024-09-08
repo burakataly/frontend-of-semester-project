@@ -1,7 +1,13 @@
-export interface User {
+export interface Instructor {
     id: number;
     username: string;
-    role: 'student' | 'instructor';
-    balance?: number;  // Optional for students
-    biography?: string;  // Optional for instructors
+    biography: string;
+    courseCount: number;
+}
+
+export interface Student {
+    id: number;
+    username: string;
+    balance: number;
+    enrollmentCount: number;
 }

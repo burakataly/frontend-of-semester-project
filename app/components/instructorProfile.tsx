@@ -2,37 +2,34 @@
 import React, { useEffect, useState } from 'react';
 import CourseCard from '@/app/components/courseCard';
 import { CourseResponse } from '@/app/interfaces/course';
-import {User} from '@/app/interfaces/user';
+import {Instructor} from '@/app/interfaces/user';
 import Link from 'next/link';
+import useAuthActions from "@/app/services/AuthService";
 import { useRouter } from 'next/navigation';
 
-interface InstructorResponse {
-    id: number;
-    username: string;
-    biography: string;
-    courseCount: number;
-}
-
-export default function InstructorProfile({ params }: { params: { instructorId: string } }) {
-    const { instructorId } = params;
-    const [instructor, setInstructor] = useState<InstructorResponse | null>(null);
+const InstructorProfile: React.FC = () => {
+    const [instructor, setInstructor] = useState<Instructor | null>(null);
     const [courses, setCourses] = useState<CourseResponse[]>([]);
     const router = useRouter();
     const [userRole, setUserRole] = useState<string>('');
-    const [userId, setUserId] = useState<number>();
+    const { GetWithAuth } = useAuthActions();
+    const [instructorId, setInstructorId] = useState<number>();
+
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const userObj: User = JSON.parse(userData);
-            setUserRole(userObj.role);
-            setUserId(userObj.id);
+        const storedUserRole = localStorage.getItem('userRole');
+        const storedUserId = localStorage.getItem('currentUserId');
+        if(storedUserRole){
+            setUserRole(storedUserRole);
         }
-    }, []);
+        if(storedUserId){
+            setInstructorId(parseInt(storedUserId));
+        }
+    }, [router]);
 
     useEffect(() => {
         if (instructorId) {
             const fetchInstructor = async () => {
-                const res = await fetch(`http://localhost:8080/instructors/${instructorId}`);
+                const res = await GetWithAuth(`/instructors/${instructorId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setInstructor(data);
@@ -42,7 +39,7 @@ export default function InstructorProfile({ params }: { params: { instructorId: 
             };
 
             const fetchCourses = async () => {
-                const res = await fetch(`http://localhost:8080/courses?instructorId=${instructorId}`);
+                const res = await GetWithAuth(`/courses?instructorId=${instructorId}`);
                 if (res.ok) {
                     const data = await res.json();
                     setCourses(data);
@@ -57,7 +54,11 @@ export default function InstructorProfile({ params }: { params: { instructorId: 
     }, [instructorId]);
 
     const logout = () => {
-        localStorage.removeItem('user');  // Remove user data from localStorage
+        localStorage.removeItem('username');
+        localStorage.removeItem('currentUserId');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         router.push('/');
     };
 
@@ -84,7 +85,7 @@ export default function InstructorProfile({ params }: { params: { instructorId: 
                         <p>Biography: {instructor.biography}</p>
                         <p>Total Courses: {instructor.courseCount}</p>
                     </div>
-                    {userRole === 'instructor' && parseInt(instructorId) === userId && (
+                    {userRole === 'INSTRUCTOR' && (
                         <Link href="/create-course" passHref>
                             <button className="mt-4 mb-4 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 focus:outline-none transition ease-in-out duration-150">
                                 Create Course
@@ -108,3 +109,4 @@ export default function InstructorProfile({ params }: { params: { instructorId: 
     );
 };
 
+export default InstructorProfile;

@@ -1,27 +1,41 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // Corrected import path
+import { useRouter } from 'next/navigation';
 import CourseCard from '@/app/components/courseCard';
+import useAuthActions from "@/app/services/AuthService";
 import { CourseResponse } from '@/app/interfaces/course'; 
-import { User } from '@/app/interfaces/user'; 
 
 const MainPage: React.FC = () => {
     const [courses, setCourses] = useState<CourseResponse[]>([]);
-    const [user, setUser] = useState<User | null>(null);
+    const [userRole, setUserRole] = useState<string>(''); 
+    const [userId, setUserId] = useState<number>();
+    const { GetWithAuth } = useAuthActions();
     const router = useRouter();
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const userObj: User = JSON.parse(userData);
-            setUser(userObj);
-            fetchCourses();
+        const storedUserId = localStorage.getItem('currentUserId');
+        const storedUserRole = localStorage.getItem('userRole');
+
+        if (storedUserId) {
+            setUserId(parseInt(storedUserId));
+            console.log("User ID set:", storedUserId);
+        } else {
+            console.log("No User ID found in localStorage");
         }
+
+        if (storedUserRole) {
+            setUserRole(storedUserRole);
+            console.log("User Role set:", storedUserRole);
+        } else {
+            console.log("No User Role found in localStorage");
+        }
+
+        fetchCourses();
     }, []);
-
+    
     const fetchCourses = async () => {
-        const courseResponse = await fetch('http://localhost:8080/courses');
-
+        const courseResponse = await GetWithAuth('/courses');
+        console.log("Courses fetched");
         if (courseResponse.ok) {
             const coursesData = await courseResponse.json() as CourseResponse[];
             setCourses(coursesData);
@@ -31,19 +45,23 @@ const MainPage: React.FC = () => {
     };
 
     const goToProfile = () => {
-        // Ensure navigation logic respects user role
-        if (user?.role === 'student') {
+        if(userId && userRole){
+            if (userRole === 'STUDENT') {
             router.push('/student-profile');
-        } else if (user?.role === 'instructor') {
-            router.push('/instructor-profile/' + user.id);
+        } else if (userRole === 'INSTRUCTOR') {
+            router.push('/instructor-profile/');
+        }
         } else {
-            // Handle case where role is undefined or user is not logged in
             router.push('/login');
         }
     };
 
     const logout = () => {
-        localStorage.removeItem('user');  // Remove user data from localStorage
+        localStorage.removeItem('username');
+        localStorage.removeItem('currentUserId');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         router.push('/');
     };
 

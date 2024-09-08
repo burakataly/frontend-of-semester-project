@@ -3,15 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import EnrollmentCard from '@/app/components/enrollmentCard';
 import { Enrollment } from '@/app/interfaces/enrollment';
-import { User } from '@/app/interfaces/user';
+import { Student } from '@/app/interfaces/user';
+import useAuthActions from "@/app/services/AuthService";
 import Link from 'next/link';
-
-interface Student {
-    id: number;
-    username: string;
-    balance: number;
-    enrollmentCount: number;
-}
 
 const StudentProfile: React.FC = () => {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -20,18 +14,38 @@ const StudentProfile: React.FC = () => {
     const [amountToAdd, setAmountToAdd] = useState<string>('');
     const [studentId, setStudentId] = useState<number>();
     const [errorMessage, setErrorMessage] = useState<string>('');
+    const { GetWithAuth, PutWithAuth } = useAuthActions();
     const router = useRouter();
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const userObj: User = JSON.parse(userData);
-            if (userObj.role === 'instructor') {
-                router.push('/instructor-profile/' + userObj.id);
-            }
-            setStudentId(userObj.id);
+        const userRole = localStorage.getItem('userRole');
+        const userId = localStorage.getItem('currentUserId');
+        
+        if (userRole === 'INSTRUCTOR') {
+            router.push('/instructor-profile/');
         }
+        if(userId){
+            setStudentId(parseInt(userId))
+        }
+    
     }, []);
+
+    const fetchStudentDetails = async () => {
+        const response = await GetWithAuth(`/students/${studentId}`);
+        if (response.ok) {
+            const data: Student = await response.json();
+            setStudent(data);
+            console.log(data);
+        }
+    };
+
+    const fetchEnrollments = async () => {
+        const response = await GetWithAuth(`/enrollments/student/${studentId}`);
+        if (response.ok) {
+            const data: Enrollment[] = await response.json();
+            setEnrollments(data);
+        }
+    };
 
     useEffect(() => {
         if (studentId) {
@@ -39,22 +53,6 @@ const StudentProfile: React.FC = () => {
             fetchEnrollments();
         }
     }, [studentId]);
-
-    const fetchStudentDetails = async () => {
-        const response = await fetch(`http://localhost:8080/students/${studentId}`);
-        if (response.ok) {
-            const data: Student = await response.json();
-            setStudent(data);
-        }
-    };
-
-    const fetchEnrollments = async () => {
-        const response = await fetch(`http://localhost:8080/enrollments?studentId=${studentId}`);
-        if (response.ok) {
-            const data: Enrollment[] = await response.json();
-            setEnrollments(data);
-        }
-    };
 
     const updateStudent = async () => {
         if (!student || !studentId) return;
@@ -70,33 +68,32 @@ const StudentProfile: React.FC = () => {
             balance: student.balance + amount,
         };
 
-        const response = await fetch(`http://localhost:8080/students/${studentId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updatedStudent)
-        });
+        const response = await PutWithAuth(`/students/${studentId}`,
+            updatedStudent);
 
         if (response.ok) {
             alert('Balance updated successfully!');
-            setStudent(updatedStudent);  // Update local state
-            setIsUpdating(false);  // Reset the update state
-            setAmountToAdd('');  // Clear the input
-            setErrorMessage(''); // Clear the error message
+            setStudent(updatedStudent);
+            setIsUpdating(false);
+            setAmountToAdd(''); 
+            setErrorMessage('');
         } else {
             alert('Failed to update balance.');
         }
     };
 
     const logout = () => {
-        localStorage.removeItem('user');  // Remove user data from localStorage
+        localStorage.removeItem('username');
+        localStorage.removeItem('currentUserId');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         router.push('/');
     };
 
     const updateBalance = async () => {
         if (!studentId) return;
-        const response = await fetch(`http://localhost:8080/students/${studentId}`);
+        const response = await GetWithAuth(`/students/${studentId}`);
         if (response.ok) {
             const updatedData = await response.json() as { balance: number };
             setStudent(prevStudent => {

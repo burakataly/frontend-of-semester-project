@@ -1,7 +1,8 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {User} from '@/app/interfaces/user';
+import useAuthActions from '../services/AuthService';
+
 interface Week {
     reading: string;
 }
@@ -17,32 +18,29 @@ interface CourseData {
 const CourseCreateForm: React.FC = () => {
     const [title, setTitle] = useState<string>('');
     const [description, setDescription] = useState<string>('');
-    const [price, setPrice] = useState<string>('');  // Keeping price as string for input handling
+    const [price, setPrice] = useState<string>('');  
     const [weeks, setWeeks] = useState<Week[]>([{ reading: '' }]);
     const [instructorID, setInstructorID] = useState<number>();
     const router = useRouter();
+    const { PostWithAuth } = useAuthActions();
 
     useEffect(() => {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const userObj: User = JSON.parse(userData);
-            setInstructorID(userObj.id);  // Set instructor ID from user data
+        const storedUserId = localStorage.getItem('currentUserId');
+
+        if (storedUserId) {
+            setInstructorID(parseInt(storedUserId));
         }
     }, []);
 
-
-    // Function to handle changes to week readings
     const handleWeekChange = (index: number, value: string) => {
         const newWeeks = weeks.map((week, idx) => idx === index ? { ...week, reading: value } : week);
         setWeeks(newWeeks);
     };
 
-    // Function to add a new week
     const addWeek = () => {
         setWeeks([...weeks, { reading: '' }]);
     };
 
-    // Function to remove a week
     const removeWeek = (index: number) => {
         setWeeks(weeks.filter((_, idx) => idx !== index));
     };
@@ -59,16 +57,11 @@ const CourseCreateForm: React.FC = () => {
         };
         console.log("course data: ", courseData);
 
-        // API call to create the course
-        const response = await fetch('http://localhost:8080/courses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(courseData)
-        });
+        const response = await PostWithAuth('/courses', courseData);
 
         if (response.ok) {
             alert('Submission successful!');
-            router.push('/instructor-profile/' + instructorID);  // Navigate back after successful creation
+            router.push('/instructor-profile/');
         } else {
             alert('Failed to create the course.');
         }
@@ -90,7 +83,7 @@ const CourseCreateForm: React.FC = () => {
                 <button type="button" onClick={addWeek} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">Add Week</button>
                 <div className="flex justify-between mt-4">
                     <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">Submit</button>
-                    <button type="button" onClick={() => router.push('/instructor-profile/' + instructorID)} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                    <button type="button" onClick={() => router.push('/instructor-profile/')} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
                         Back to Profile
                     </button>
                 </div>
